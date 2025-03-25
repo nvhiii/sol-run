@@ -1,830 +1,614 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 
-const InfiniteRunner = () => {
+const RunnerGame = () => {
+  // Game constants
+  const GAME_HEIGHT = 400;
+  const GAME_WIDTH = 800;
+  const GRAVITY = 1.5;
+  const JUMP_FORCE = -20;
+  const PLAYER_WIDTH = 50;
+  const PLAYER_HEIGHT = 60;
+  const PLAYER_DUCK_HEIGHT = 30;
+  const GROUND_HEIGHT = 60;
+  const OBSTACLE_WIDTH = 40;
+  const OBSTACLE_MIN_HEIGHT = 50;
+  const OBSTACLE_MAX_HEIGHT = 120;
+  const OBSTACLE_MIN_DISTANCE = 400;
+  const OBSTACLE_MAX_DISTANCE = 800;
+  const BIRD_WIDTH = 50;
+  const BIRD_HEIGHT = 40;
+  const BIRD_MIN_HEIGHT = 120;
+  const BIRD_MAX_HEIGHT = 200;
+  const GAME_SPEED_INITIAL = 8;
+  const SPEED_INCREMENT = 0.001;
+
   // Game state
-  const [gameStarted, setGameStarted] = useState(false);
+  const [isPlaying, setIsPlaying] = useState(false);
   const [gameOver, setGameOver] = useState(false);
   const [score, setScore] = useState(0);
-  const [speed, setSpeed] = useState(5);
-  
-  // Player state
-  const [playerY, setPlayerY] = useState(300);
+  const [highScore, setHighScore] = useState(0);
+  const [playerY, setPlayerY] = useState(GAME_HEIGHT - GROUND_HEIGHT - PLAYER_HEIGHT);
+  const [playerVelocity, setPlayerVelocity] = useState(0);
   const [isJumping, setIsJumping] = useState(false);
-  const [isDiving, setIsDiving] = useState(false);
-  const [playerHeight, setPlayerHeight] = useState(50);
-  
-  // Game elements - initialized with empty arrays
+  const [isDucking, setIsDucking] = useState(false);
   const [obstacles, setObstacles] = useState([]);
-  const [platforms, setPlatforms] = useState([]);
-  const [scenery, setScenery] = useState([]);
+  const [birds, setBirds] = useState([]);
+  const [backgroundPosition, setBackgroundPosition] = useState(0);
+  const [showDebug, setShowDebug] = useState(false);
+  const gameSpeed = useRef(GAME_SPEED_INITIAL);
+  const frameRef = useRef(null);
+  const lastObstacleTime = useRef(0);
+  const lastBirdTime = useRef(0);
+
+  // Start game
+  const startGame = () => {
+    setIsPlaying(true);
+    setGameOver(false);
+    setScore(0);
+    setPlayerY(GAME_HEIGHT - GROUND_HEIGHT - PLAYER_HEIGHT);
+    setPlayerVelocity(0);
+    setIsJumping(false);
+    setIsDucking(false);
+    setObstacles([]);
+    setBirds([]);
+    setBackgroundPosition(0);
+    gameSpeed.current = GAME_SPEED_INITIAL;
+    lastObstacleTime.current = 0;
+    lastBirdTime.current = 0;
+  };
+
+  // Handle player jump
+  const jump = useCallback(() => {
+    if (!isJumping && isPlaying && !gameOver) {
+      setPlayerVelocity(JUMP_FORCE);
+      setIsJumping(true);
+      setIsDucking(false);
+    }
+  }, [isJumping, isPlaying, gameOver]);
   
-  // Animation frame reference
-  const requestRef = useRef();
-  const lastTimeRef = useRef(0);
-  const obstacleTimerRef = useRef(0);
+  // Handle player duck
+  const duck = useCallback(() => {
+    if (!isJumping && isPlaying && !gameOver) {
+      setIsDucking(true);
+    }
+  }, [isJumping, isPlaying, gameOver]);
   
-  // Game canvas dimensions
-  const gameWidth = 800;
-  const gameHeight = 500;
-  const playerWidth = 30;
-  
-  // Game mechanics constants
-  const gravity = 0.6;
-  const jumpForce = -15;
-  const diveForce = 15;
-  const maxJumpHeight = 150;
-  
-  // Player physics
-  const [playerVelocityY, setPlayerVelocityY] = useState(0);
-  
-  // Initialize with base platforms
-  useEffect(() => {
-    // Create initial ground
-    setPlatforms([
-      { x: 0, y: 350, width: 1200, height: 50, type: 'ground' },
-      { x: 1200, y: 350, width: 1000, height: 50, type: 'ground' }
-    ]);
-    
-    // Add some initial obstacles
-    setObstacles([
-      { x: 500, y: 300, width: 40, height: 50, type: 'block' },
-      { x: 800, y: 300, width: 40, height: 50, type: 'pipe' },
-      { x: 1100, y: 300, width: 40, height: 50, type: 'block' }
-    ]);
-    
-    // Add some initial scenery
-    setScenery([
-      { x: 200, y: 250, width: 150, height: 100, type: 'bgHill' },
-      { x: 700, y: 80, width: 80, height: 40, type: 'cloud' }
-    ]);
+  // Handle stop ducking
+  const stopDucking = useCallback(() => {
+    setIsDucking(false);
   }, []);
-  
-  // Handle keyboard input
+
+  // Handle keyboard events
   useEffect(() => {
     const handleKeyDown = (e) => {
-      if (!gameStarted && !gameOver) {
-        setGameStarted(true);
-        return;
-      }
-      
-      if (gameOver) {
-        if (e.key === 'Enter') {
-          resetGame();
-        }
-        return;
-      }
-      
-      if (e.key === 'ArrowUp' || e.key === ' ' || e.key === 'w') {
-        if (!isJumping && !isDiving) {
-          setIsJumping(true);
-          setPlayerVelocityY(jumpForce);
+      if ((e.code === 'Space' || e.code === 'ArrowUp') && !gameOver) {
+        if (!isPlaying) {
+          startGame();
+        } else {
+          jump();
         }
       }
-      
-      if (e.key === 'ArrowDown' || e.key === 's') {
-        if (!isDiving && !isOnGround()) {
-          setIsDiving(true);
-          setPlayerVelocityY(diveForce);
-          setPlayerHeight(25); // Player crouches when diving
-        } else if (isOnGround()) {
-          setPlayerHeight(25); // Player crouches on ground
-        }
+      if (e.code === 'ArrowDown' && !gameOver && isPlaying) {
+        duck();
       }
     };
     
     const handleKeyUp = (e) => {
-      if (e.key === 'ArrowDown' || e.key === 's') {
-        setPlayerHeight(50); // Player stands up when key is released
+      if (e.code === 'ArrowDown' && !gameOver && isPlaying) {
+        stopDucking();
       }
     };
-    
+
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('keyup', handleKeyUp);
-    
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [gameStarted, gameOver, isJumping, isDiving]);
-  
-  // Check if player is on ground
-  const isOnGround = () => {
-    const playerBottom = playerY + playerHeight;
-    
-    for (const platform of platforms) {
-      if (platform && playerBottom >= platform.y && 
-          playerY + playerHeight <= platform.y + 10 && 
-          50 + playerWidth >= platform.x && 
-          50 <= platform.x + platform.width) {
-        return true;
-      }
-    }
-    
-    return false;
-  };
-  
-  // Generate random obstacles and terrain
-  const generateObstacle = () => {
-    const types = ['block', 'hole', 'platform', 'pipe', 'spinyBlock', 'tunnel', 'hill'];
-    // Weight the types to make the game more interesting but not too difficult
-    let type;
-    const rand = Math.random();
-    if (rand < 0.25) {
-      type = 'block';
-    } else if (rand < 0.35) {
-      type = 'hole';
-    } else if (rand < 0.55) {
-      type = 'platform';
-    } else if (rand < 0.7) {
-      type = 'pipe';
-    } else if (rand < 0.8) {
-      type = 'spinyBlock';
-    } else if (rand < 0.9) {
-      type = 'tunnel';
-    } else {
-      type = 'hill';
-    }
-    
-    if (type === 'block') {
-      // Standard blocks to jump over
-      return {
-        x: gameWidth,
-        y: 300,
-        width: 30 + Math.random() * 30,
-        height: 50,
-        type: 'block'
-      };
-    } else if (type === 'hole') {
-      // Gaps in the ground to jump across
-      return {
-        x: gameWidth,
-        y: 350,
-        width: 60 + Math.random() * 60,
-        height: 50,
-        type: 'hole'
-      };
-    } else if (type === 'platform') {
-      // Elevated platforms to jump onto
-      const platformY = 200 + Math.random() * 100;
-      return {
-        x: gameWidth,
-        y: platformY,
-        width: 100 + Math.random() * 100,
-        height: 20,
-        type: 'platform'
-      };
-    } else if (type === 'pipe') {
-      // Mario-style pipes - can be jumped over
-      return {
-        x: gameWidth,
-        y: 300,
-        width: 40,
-        height: 50,
-        type: 'pipe'
-      };
-    } else if (type === 'spinyBlock') {
-      // Blocks with spikes - must be avoided completely
-      return {
-        x: gameWidth,
-        y: 300,
-        width: 40,
-        height: 50,
-        type: 'spinyBlock',
-        deadly: true
-      };
-    } else if (type === 'tunnel') {
-      // Tunnels - can go over or through by crouching
-      return {
-        x: gameWidth,
-        y: 280,
-        width: 100,
-        height: 70,
-        type: 'tunnel',
-        hasGap: true
-      };
-    } else if (type === 'hill') {
-      // Hills - can either go over or through
-      const height = 80 + Math.random() * 40;
-      return {
-        x: gameWidth,
-        y: 350 - height,
-        width: 150 + Math.random() * 50,
-        height: height,
-        type: 'hill',
-        hasGap: Math.random() > 0.5 // 50% chance the hill has a tunnel
-      };
-    }
-    
-    // Default fallback
+  }, [jump, duck, stopDucking, isPlaying, gameOver]);
+
+  // Create obstacles
+  const createObstacle = useCallback(() => {
+    const height = Math.floor(
+      Math.random() * (OBSTACLE_MAX_HEIGHT - OBSTACLE_MIN_HEIGHT) + OBSTACLE_MIN_HEIGHT
+    );
+    const distance = Math.floor(
+      Math.random() * (OBSTACLE_MAX_DISTANCE - OBSTACLE_MIN_DISTANCE) + OBSTACLE_MIN_DISTANCE
+    );
+
     return {
-      x: gameWidth,
-      y: 300,
-      width: 40,
-      height: 50,
-      type: 'block'
+      x: GAME_WIDTH + distance,
+      y: GAME_HEIGHT - GROUND_HEIGHT - height,
+      width: OBSTACLE_WIDTH,
+      height,
+      passed: false,
+      type: 'ground'
     };
-  };
+  }, []);
   
-  // Generate decorative scenery
-  const generateScenery = () => {
-    const types = ['hill', 'smallHill', 'cloud', 'bushes', 'castle'];
-    const type = types[Math.floor(Math.random() * types.length)];
-    
-    if (type === 'hill') {
-      // Background hills
-      const height = 50 + Math.random() * 80;
-      return {
-        x: gameWidth,
-        y: 350 - height,
-        width: 200 + Math.random() * 150,
-        height: height,
-        type: 'bgHill'
-      };
-    } else if (type === 'smallHill') {
-      // Small hills
-      const height = 30 + Math.random() * 40;
-      return {
-        x: gameWidth,
-        y: 350 - height,
-        width: 100 + Math.random() * 50,
-        height: height,
-        type: 'bgSmallHill'
-      };
-    } else if (type === 'cloud') {
-      // Clouds
-      return {
-        x: gameWidth,
-        y: 50 + Math.random() * 100,
-        width: 60 + Math.random() * 40,
-        height: 30 + Math.random() * 20,
-        type: 'cloud'
-      };
-    } else if (type === 'bushes') {
-      // Bushes
-      return {
-        x: gameWidth,
-        y: 320,
-        width: 80 + Math.random() * 40,
-        height: 30,
-        type: 'bushes'
-      };
-    } else if (type === 'castle') {
-      // Castle (rare)
-      return {
-        x: gameWidth,
-        y: 200,
-        width: 120,
-        height: 150,
-        type: 'castle'
-      };
-    }
-    
-    // Default fallback
+  // Create birds
+  const createBird = useCallback(() => {
+    const height = Math.floor(
+      Math.random() * (BIRD_MAX_HEIGHT - BIRD_MIN_HEIGHT) + BIRD_MIN_HEIGHT
+    );
+    const distance = Math.floor(
+      Math.random() * (OBSTACLE_MAX_DISTANCE - OBSTACLE_MIN_DISTANCE) + OBSTACLE_MIN_DISTANCE
+    );
+
     return {
-      x: gameWidth,
-      y: 100,
-      width: 60,
-      height: 30,
-      type: 'cloud'
+      x: GAME_WIDTH + distance,
+      y: GAME_HEIGHT - GROUND_HEIGHT - height,
+      width: BIRD_WIDTH,
+      height: BIRD_HEIGHT,
+      passed: false,
+      wingUp: true,
+      wingTimer: 0,
+      type: 'bird'
     };
-  };
-  
-  // Ensure there's always ground ahead by adding new segments
-  const ensureGroundAhead = () => {
-    if (!platforms || platforms.length === 0) return;
-    
-    // Filter valid ground platforms
-    const groundPlatforms = platforms.filter(p => p && p.type === 'ground');
-    if (groundPlatforms.length === 0) {
-      // If no ground exists, add a basic segment
-      setPlatforms(prev => [...prev, {
-        x: 0,
-        y: 350,
-        width: 1200,
-        height: 50,
-        type: 'ground'
-      }]);
-      return;
-    }
-    
-    // Find the furthest ground platform
-    let furthestX = 0;
-    let furthestWidth = 0;
-    
-    for (const platform of groundPlatforms) {
-      if (platform.x + platform.width > furthestX + furthestWidth) {
-        furthestX = platform.x;
-        furthestWidth = platform.width;
-      }
-    }
-    
-    // Calculate where ground ends
-    const groundEnd = furthestX + furthestWidth;
-    
-    // If we don't have enough ground ahead, add more
-    if (groundEnd < gameWidth + 1200) {
-      setPlatforms(prevPlatforms => [
-        ...prevPlatforms,
-        {
-          x: groundEnd,
-          y: 350,
-          width: 800 + Math.random() * 400, // Make ground segments much longer
-          height: 50,
-          type: 'ground'
-        }
-      ]);
-    }
-  };
-  
-  // Game update loop
-  const gameLoop = (time) => {
-    if (lastTimeRef.current === 0) {
-      lastTimeRef.current = time;
-    }
-    
-    const deltaTime = time - lastTimeRef.current;
-    lastTimeRef.current = time;
-    
-    if (gameStarted && !gameOver) {
-      // Update score
-      setScore(prevScore => prevScore + deltaTime * 0.01);
+  }, []);
+
+  // Game loop
+  useEffect(() => {
+    if (!isPlaying) return;
+
+    const update = () => {
+      // Update player position
+      let newVelocity = playerVelocity + GRAVITY;
+      let newY = playerY + newVelocity;
       
-      // Increase speed gradually
-      if (score > 0 && score % 500 < 10) {
-        setSpeed(prevSpeed => Math.min(prevSpeed + 0.1, 15));
+      // Check if player touches the ground
+      if (newY > GAME_HEIGHT - GROUND_HEIGHT - (isDucking ? PLAYER_DUCK_HEIGHT : PLAYER_HEIGHT)) {
+        newY = GAME_HEIGHT - GROUND_HEIGHT - (isDucking ? PLAYER_DUCK_HEIGHT : PLAYER_HEIGHT);
+        newVelocity = 0;
+        setIsJumping(false);
       }
       
-      // Update player position with gravity
-      setPlayerVelocityY(prevVelocity => {
-        const newVelocity = prevVelocity + gravity;
-        return newVelocity;
-      });
+      setPlayerY(newY);
+      setPlayerVelocity(newVelocity);
       
-      setPlayerY(prevY => {
-        let newY = prevY + playerVelocityY;
-        
-        // Check collision with platforms
-        let onPlatform = false;
-        
-        if (platforms && platforms.length > 0) {
-          for (const platform of platforms) {
-            if (platform && platform.type !== 'hole') {
-              const playerBottom = prevY + playerHeight;
-              const newPlayerBottom = newY + playerHeight;
-              
-              // Check if landing on platform
-              if (playerBottom <= platform.y && newPlayerBottom >= platform.y &&
-                  50 + playerWidth >= platform.x && 50 <= platform.x + platform.width) {
-                newY = platform.y - playerHeight;
-                setPlayerVelocityY(0);
-                setIsJumping(false);
-                setIsDiving(false);
-                onPlatform = true;
-                break;
-              }
-            }
-          }
-        }
-        
-        // Check for ceiling collision
-        if (newY < 0) {
-          newY = 0;
-          setPlayerVelocityY(0);
-        }
-        
-        // Check if player falls out of bounds
-        if (newY > gameHeight) {
-          setGameOver(true);
-        }
-        
-        // Check if jump is complete
-        if (isJumping && playerVelocityY >= 0) {
-          setIsJumping(false);
-        }
-        
-        // Check if dive is complete
-        if (isDiving && onPlatform) {
-          setIsDiving(false);
-        }
-        
-        return newY;
-      });
+      // Update background
+      setBackgroundPosition(prev => (prev - gameSpeed.current) % 32);
+      
+      // Update obstacles and birds
+      const currentTime = Date.now();
+      if (currentTime - lastObstacleTime.current > 1500) {
+        setObstacles(prev => [...prev, createObstacle()]);
+        lastObstacleTime.current = currentTime;
+      }
+      
+      if (currentTime - lastBirdTime.current > 3000) {
+        setBirds(prev => [...prev, createBird()]);
+        lastBirdTime.current = currentTime;
+      }
+      
+      // Update bird wing animation
+      setBirds(prev => 
+        prev.map(bird => ({
+          ...bird,
+          wingTimer: bird.wingTimer + 1,
+          wingUp: bird.wingTimer % 15 === 0 ? !bird.wingUp : bird.wingUp
+        }))
+      );
+      
+      const playerRect = {
+        x: 100,
+        y: newY,
+        width: PLAYER_WIDTH,
+        height: isDucking ? PLAYER_DUCK_HEIGHT : PLAYER_HEIGHT
+      };
       
       // Update obstacles
-      setObstacles(prevObstacles => {
-        if (!prevObstacles) return [];
-        
-        return prevObstacles
+      setObstacles(prev => 
+        prev
           .map(obstacle => {
-            if (!obstacle) return null;
+            // Move obstacle
+            const newX = obstacle.x - gameSpeed.current;
+            
+            // Check collision
+            const obstacleRect = {
+              x: newX,
+              y: obstacle.y,
+              width: obstacle.width,
+              height: obstacle.height
+            };
+            
+            if (
+              playerRect.x < obstacleRect.x + obstacleRect.width &&
+              playerRect.x + playerRect.width > obstacleRect.x &&
+              playerRect.y < obstacleRect.y + obstacleRect.height &&
+              playerRect.y + playerRect.height > obstacleRect.y
+            ) {
+              setIsPlaying(false);
+              setGameOver(true);
+              setHighScore(prev => Math.max(prev, score));
+              return null;
+            }
+            
+            // Update score
+            if (!obstacle.passed && newX < 100 - PLAYER_WIDTH) {
+              setScore(prev => prev + 1);
+              obstacle.passed = true;
+            }
+            
             return {
               ...obstacle,
-              x: obstacle.x - speed
+              x: newX
             };
           })
-          .filter(obstacle => obstacle && obstacle.x + obstacle.width > -100);
-      });
+          .filter(obstacle => obstacle && obstacle.x > -OBSTACLE_WIDTH)
+      );
       
-      // Update platforms
-      setPlatforms(prevPlatforms => {
-        if (!prevPlatforms) return [];
-        
-        return prevPlatforms
-          .map(platform => {
-            if (!platform) return null;
-            return {
-              ...platform,
-              x: platform.x - speed
-            };
-          })
-          .filter(platform => platform && platform.x + platform.width > -200);
-      });
-      
-      // Update scenery with parallax effect
-      setScenery(prevScenery => {
-        if (!prevScenery) return [];
-        
-        return prevScenery
-          .map(item => {
-            if (!item) return null;
-            const parallaxSpeed = item.type === 'cloud' ? 0.5 : 0.8;
-            return {
-              ...item,
-              x: item.x - (speed * parallaxSpeed)
-            };
-          })
-          .filter(item => item && item.x + item.width > -100);
-      });
-      
-      // Add new obstacles periodically
-      obstacleTimerRef.current += deltaTime;
-      
-      // Periodically check and ensure there's ground ahead
-      if (obstacleTimerRef.current > 500) {
-        ensureGroundAhead();
-      }
-      
-      // Add new obstacles
-      if (obstacleTimerRef.current > 1500) {
-        obstacleTimerRef.current = 0;
-        
-        // Add a random obstacle
-        const newObstacle = generateObstacle();
-        if (newObstacle) {
-          setObstacles(prevObstacles => [...prevObstacles, newObstacle]);
-          
-          // Special handling for platforms and holes
-          if (newObstacle.type === 'platform') {
-            setPlatforms(prevPlatforms => [...prevPlatforms, newObstacle]);
-          }
-        }
-        
-        // Add random scenery elements with 30% chance
-        if (Math.random() < 0.3) {
-          const newScenery = generateScenery();
-          if (newScenery) {
-            setScenery(prevScenery => [...prevScenery, newScenery]);
-          }
-        }
-      }
-      
-      // Collision detection with advanced logic for different obstacle types
-      if (obstacles && obstacles.length > 0) {
-        for (const obstacle of obstacles) {
-          if (!obstacle) continue;
-          
-          // Check if player is within the x-bounds of the obstacle
-          const playerRight = 50 + playerWidth;
-          const playerBottom = playerY + playerHeight;
-          const obstacleRight = obstacle.x + obstacle.width;
-          
-          const horizontalOverlap = playerRight > obstacle.x && 50 < obstacleRight;
-          
-          if (horizontalOverlap) {
-            if (obstacle.type === 'block' || obstacle.type === 'pipe' || obstacle.type === 'spinyBlock') {
-              // Standard collision with blocks and pipes
-              if (playerY < obstacle.y + obstacle.height &&
-                  playerBottom > obstacle.y) {
-                setGameOver(true);
-                break;
-              }
-            } else if (obstacle.type === 'tunnel' && obstacle.hasGap) {
-              // For tunnels, player can go through if crouching (small enough)
-              if (playerHeight > 25 && // Not crouching
-                  playerY < obstacle.y + obstacle.height &&
-                  playerBottom > obstacle.y) {
-                setGameOver(true);
-                break;
-              }
-            } else if (obstacle.type === 'hill') {
-              // For hills, check if going over or through
-              if (obstacle.hasGap) {
-                // Hills with gaps - can go through if crouching
-                const gapTop = obstacle.y + obstacle.height - 25; // Gap is at the bottom
-                
-                // Check if the player is in the gap area
-                const inGapX = playerRight > obstacle.x + 20 && 50 < obstacleRight - 20;
-                const inGapY = playerBottom > gapTop && playerY < obstacle.y + obstacle.height;
-                
-                if (inGapX && inGapY) {
-                  // In the gap, can pass if crouching
-                  if (playerHeight > 25) { // Not crouching
-                    setGameOver(true);
-                    break;
-                  }
-                } else if (playerY < obstacle.y + obstacle.height &&
-                           playerBottom > obstacle.y) {
-                  // Not in the gap but colliding with the hill
-                  setGameOver(true);
-                  break;
-                }
-              } else {
-                // Hills without gaps - must jump over
-                if (playerY < obstacle.y + obstacle.height &&
-                    playerBottom > obstacle.y) {
-                  setGameOver(true);
-                  break;
-                }
-              }
-            }
-          }
-          
-          // Check for falling into holes
-          if (obstacle.type === 'hole' && horizontalOverlap && isOnGround()) {
-            let onHole = true;
+      // Update birds
+      setBirds(prev => 
+        prev
+          .map(bird => {
+            // Move bird
+            const newX = bird.x - gameSpeed.current * 1.2; // Birds move slightly faster
             
-            // Check if player is on a platform above the hole
-            if (platforms && platforms.length > 0) {
-              for (const platform of platforms) {
-                if (platform && platform.type !== 'hole' && 
-                    playerRight > platform.x && 
-                    50 < platform.x + platform.width &&
-                    playerBottom <= platform.y + 10 &&
-                    playerBottom >= platform.y) {
-                  onHole = false;
-                  break;
-                }
-              }
+            // Check collision - birds only hit if the player is standing (not ducking)
+            const birdRect = {
+              x: newX,
+              y: bird.y,
+              width: bird.width,
+              height: bird.height
+            };
+            
+            if (
+              playerRect.x < birdRect.x + birdRect.width &&
+              playerRect.x + playerRect.width > birdRect.x &&
+              playerRect.y < birdRect.y + birdRect.height &&
+              playerRect.y + playerRect.height > birdRect.y &&
+              !isDucking // Only collide if NOT ducking
+            ) {
+              setIsPlaying(false);
+              setGameOver(true);
+              setHighScore(prev => Math.max(prev, score));
+              return null;
             }
             
-            if (onHole) {
-              setPlayerY(prevY => prevY + 5); // Start falling
+            // Update score
+            if (!bird.passed && newX < 100 - PLAYER_WIDTH) {
+              setScore(prev => prev + 1);
+              bird.passed = true;
             }
-          }
-        }
+            
+            return {
+              ...bird,
+              x: newX
+            };
+          })
+          .filter(bird => bird && bird.x > -BIRD_WIDTH)
+      );
+      
+      // Increase game speed
+      gameSpeed.current += SPEED_INCREMENT;
+      
+      frameRef.current = requestAnimationFrame(update);
+    };
+    
+    frameRef.current = requestAnimationFrame(update);
+    
+    return () => {
+      if (frameRef.current) {
+        cancelAnimationFrame(frameRef.current);
       }
-    }
-    
-    requestRef.current = requestAnimationFrame(gameLoop);
+    };
+  }, [isPlaying, playerY, playerVelocity, createObstacle, createBird, score, isJumping, isDucking]);
+
+  // Styles
+  const gameContainerStyle = {
+    position: 'relative',
+    width: `${GAME_WIDTH}px`,
+    height: `${GAME_HEIGHT}px`,
+    overflow: 'hidden',
+    borderRadius: '8px',
+    border: '2px solid #333',
+    background: 'linear-gradient(to bottom, #87CEEB 0%, #E0F6FF 70%)',
+    margin: '0 auto',
+  };
+
+  const groundStyle = {
+    position: 'absolute',
+    bottom: '0',
+    left: '0',
+    width: '100%',
+    height: `${GROUND_HEIGHT}px`,
+    background: 'linear-gradient(to bottom, #8B4513 0%, #A52A2A 40%, #8B4513 100%)',
+    borderTop: '2px solid #333',
+  };
+
+  const grassStyle = {
+    position: 'absolute',
+    bottom: `${GROUND_HEIGHT - 10}px`,
+    left: '0',
+    width: '100%',
+    height: '10px',
+    background: '#228B22',
+  };
+
+  const textureStyle = {
+    position: 'absolute',
+    bottom: '0',
+    left: '0',
+    width: '100%',
+    height: '30px',
+    backgroundImage: 'linear-gradient(90deg, #8B4513 25%, #A52A2A 25%, #A52A2A 50%, #8B4513 50%, #8B4513 75%, #A52A2A 75%, #A52A2A 100%)',
+    backgroundSize: '32px 32px',
+    backgroundPosition: `${backgroundPosition}px 0`,
+    opacity: '0.6',
+  };
+
+  const playerStyle = {
+    position: 'absolute',
+    left: '100px',
+    top: `${playerY}px`,
+    width: `${PLAYER_WIDTH}px`,
+    height: `${isDucking ? PLAYER_DUCK_HEIGHT : PLAYER_HEIGHT}px`,
+    background: '#FF0000',
+    borderRadius: '8px',
+    boxShadow: '0 0 5px rgba(0, 0, 0, 0.3)',
+    transition: 'transform 0.1s, height 0.1s',
+    transform: isJumping ? 'rotate(-10deg)' : 'rotate(0deg)',
+  };
+
+  const playerHeadStyle = {
+    position: 'absolute',
+    top: isDucking ? '-5px' : '-15px',
+    left: '5px',
+    width: '40px',
+    height: '25px',
+    background: '#FF0000',
+    borderRadius: '50% 50% 0 0',
+  };
+
+  const playerEyeStyle = {
+    position: 'absolute',
+    top: '5px',
+    left: '25px',
+    width: '10px',
+    height: '10px',
+    background: '#FFFFFF',
+    borderRadius: '50%',
+  };
+
+  const playerPupilStyle = {
+    position: 'absolute',
+    top: '7px',
+    left: '30px',
+    width: '5px',
+    height: '5px',
+    background: '#000000',
+    borderRadius: '50%',
+  };
+
+  const obstacleStyle = (obstacle) => ({
+    position: 'absolute',
+    left: `${obstacle.x}px`,
+    top: `${obstacle.y}px`,
+    width: `${obstacle.width}px`,
+    height: `${obstacle.height}px`,
+    background: 'linear-gradient(to right, #006400, #008000)',
+    borderRadius: '4px',
+    boxShadow: '0 0 5px rgba(0, 0, 0, 0.3)',
+  });
+  
+  const birdStyle = (bird) => ({
+    position: 'absolute',
+    left: `${bird.x}px`,
+    top: `${bird.y}px`,
+    width: `${bird.width}px`,
+    height: `${bird.height}px`,
+    zIndex: 5, // Make birds appear in front of other elements
+  });
+  
+  const birdBodyStyle = {
+    position: 'absolute',
+    width: '30px',
+    height: '20px',
+    background: '#4682B4',
+    borderRadius: '50%',
+    top: '10px',
+    left: '10px',
+    border: '1px solid #2E5984', // Add border for better visibility
   };
   
-  // Start/stop the game loop
-  useEffect(() => {
-    requestRef.current = requestAnimationFrame(gameLoop);
-    return () => cancelAnimationFrame(requestRef.current);
-  }, [gameStarted, gameOver, score, playerY, playerVelocityY, isJumping, isDiving, obstacles, platforms, speed]);
-  
-  // Reset the game
-  const resetGame = () => {
-    setGameStarted(false);
-    setGameOver(false);
-    setScore(0);
-    setSpeed(5);
-    setPlayerY(300);
-    setPlayerVelocityY(0);
-    setIsJumping(false);
-    setIsDiving(false);
-    setPlayerHeight(50);
-    
-    // Clear all game elements
-    setObstacles([]);
-    setPlatforms([]);
-    setScenery([]);
-    
-    // Re-initialize with base elements
-    setTimeout(() => {
-      setPlatforms([
-        { x: 0, y: 350, width: 1200, height: 50, type: 'ground' },
-        { x: 1200, y: 350, width: 1000, height: 50, type: 'ground' }
-      ]);
-      
-      // Add some initial obstacles
-      setObstacles([
-        { x: 500, y: 300, width: 40, height: 50, type: 'block' },
-        { x: 800, y: 300, width: 40, height: 50, type: 'pipe' },
-        { x: 1100, y: 300, width: 40, height: 50, type: 'block' }
-      ]);
-      
-      // Add some initial scenery
-      setScenery([
-        { x: 200, y: 250, width: 150, height: 100, type: 'bgHill' },
-        { x: 700, y: 80, width: 80, height: 40, type: 'cloud' }
-      ]);
-    }, 100);
-    
-    lastTimeRef.current = 0;
-    obstacleTimerRef.current = 0;
+  const birdHeadStyle = {
+    position: 'absolute',
+    width: '20px',
+    height: '20px',
+    background: '#4682B4',
+    borderRadius: '50%',
+    top: '5px',
+    left: '30px',
+    border: '1px solid #2E5984', // Add border for better visibility
   };
   
+  const birdBeakStyle = {
+    position: 'absolute',
+    width: '15px',
+    height: '10px',
+    background: '#FFA500',
+    clipPath: 'polygon(0 50%, 100% 0, 100% 100%)',
+    top: '10px',
+    left: '45px',
+  };
+  
+  const birdWingUpStyle = {
+    position: 'absolute',
+    width: '25px',
+    height: '15px',
+    background: '#87CEEB',
+    borderRadius: '50%',
+    top: '0px',
+    left: '15px',
+    transform: 'rotate(-20deg)',
+    border: '1px solid #5F9EA0', // Add border for better visibility
+  };
+  
+  const birdWingDownStyle = {
+    position: 'absolute',
+    width: '25px',
+    height: '15px',
+    background: '#87CEEB',
+    borderRadius: '50%',
+    top: '25px',
+    left: '15px',
+    transform: 'rotate(20deg)',
+    border: '1px solid #5F9EA0', // Add border for better visibility
+  };
+  
+  const birdEyeStyle = {
+    position: 'absolute',
+    width: '5px',
+    height: '5px',
+    background: '#000',
+    borderRadius: '50%',
+    top: '8px',
+    left: '38px',
+  };
+
+  const scoreStyle = {
+    position: 'absolute',
+    top: '20px',
+    right: '20px',
+    fontSize: '24px',
+    fontWeight: 'bold',
+    color: '#333',
+  };
+
+  const gameOverStyle = {
+    position: 'absolute',
+    top: '50%',
+    left: '50%',
+    transform: 'translate(-50%, -50%)',
+    textAlign: 'center',
+    padding: '20px',
+    background: 'rgba(255, 255, 255, 0.8)',
+    borderRadius: '8px',
+    boxShadow: '0 0 10px rgba(0, 0, 0, 0.2)',
+  };
+
+  const buttonStyle = {
+    padding: '10px 20px',
+    fontSize: '18px',
+    fontWeight: 'bold',
+    background: '#FF0000',
+    color: '#FFFFFF',
+    border: 'none',
+    borderRadius: '4px',
+    cursor: 'pointer',
+    margin: '10px 0',
+    boxShadow: '0 4px 0 #8B0000',
+  };
+
+  const startScreenStyle = {
+    position: 'absolute',
+    top: '50%',
+    left: '50%',
+    transform: 'translate(-50%, -50%)',
+    textAlign: 'center',
+    padding: '20px',
+    background: 'rgba(255, 255, 255, 0.8)',
+    borderRadius: '8px',
+    boxShadow: '0 0 10px rgba(0, 0, 0, 0.2)',
+  };
+
+  const cloudStyle = {
+    position: 'absolute',
+    width: '100px',
+    height: '50px',
+    background: '#FFFFFF',
+    borderRadius: '25px',
+    boxShadow: '0 0 5px rgba(0, 0, 0, 0.1)',
+  };
+
   return (
-    <div className="flex flex-col items-center justify-center h-screen bg-gray-100">
-      <div className="relative w-full max-w-4xl overflow-hidden bg-blue-100 border-4 border-blue-800 rounded-lg shadow-lg" style={{ width: gameWidth, height: gameHeight }}>
-        {/* Sky background */}
-        <div className="absolute inset-0 bg-blue-300"></div>
+    <div className="flex flex-col items-center mt-8" onClick={!isPlaying ? startGame : jump}>
+      <div style={gameContainerStyle}>
+        <div style={{...cloudStyle, top: '40px', left: '100px'}}></div>
+        <div style={{...cloudStyle, top: '80px', left: '400px', width: '150px'}}></div>
+        <div style={{...cloudStyle, top: '60px', left: '650px'}}></div>
         
-        {/* Background scenery */}
-        {scenery && scenery.map((item, index) => {
-          if (!item) return null;
-          
-          const styleClass = item.type === 'bgHill' ? 'bg-green-600 rounded-t-full' :
-            item.type === 'bgSmallHill' ? 'bg-green-700 rounded-t-full' :
-            item.type === 'cloud' ? 'bg-white rounded-full' :
-            item.type === 'bushes' ? 'bg-green-500 rounded-t-full' :
-            item.type === 'castle' ? 'bg-yellow-700' :
-            'bg-transparent';
-            
-          return (
-            <div
-              key={`scenery-${index}`}
-              className={`absolute ${styleClass}`}
-              style={{
-                left: item.x,
-                top: item.y,
-                width: item.width,
-                height: item.height,
-                zIndex: 1
-              }}
-            >
-              {item.type === 'castle' && (
-                <>
-                  <div className="absolute w-1/3 h-1/4 bg-yellow-800 top-0 left-1/3 rounded-t-lg"></div>
-                  <div className="absolute w-1/5 h-2/5 bg-yellow-900 bottom-0 left-2/5"></div>
-                </>
-              )}
-            </div>
-          );
-        })}
+        {obstacles.map((obstacle, index) => (
+          <div key={`obstacle-${index}`} style={obstacleStyle(obstacle)}></div>
+        ))}
         
-        {/* Platforms */}
-        {platforms && platforms.map((platform, index) => {
-          if (!platform) return null;
-          
-          const styleClass = platform.type === 'hole' ? 'bg-transparent' : 
-            platform.type === 'platform' ? 'bg-yellow-600' : 
-            'bg-green-800';
-            
-          return (
-            <div
-              key={`platform-${index}`}
-              className={`absolute ${styleClass}`}
-              style={{
-                left: platform.x,
-                top: platform.y,
-                width: platform.width,
-                height: platform.height,
-                zIndex: 2
-              }}
-            ></div>
-          );
-        })}
-        
-        {/* Obstacles */}
-        {obstacles && obstacles.map((obstacle, index) => {
-          if (!obstacle) return null;
-          
-          let className = "absolute ";
-          let innerContent = null;
-          
-          switch(obstacle.type) {
-            case 'block':
-              className += "bg-red-600";
-              break;
-            case 'pipe':
-              className += "bg-green-500";
-              break;
-            case 'spinyBlock':
-              className += "bg-red-700";
-              innerContent = (
-                <div className="w-full h-1/3 absolute top-0 flex justify-around">
-                  <div className="w-0 h-0 border-l-4 border-r-4 border-b-8 border-transparent border-b-white"></div>
-                  <div className="w-0 h-0 border-l-4 border-r-4 border-b-8 border-transparent border-b-white"></div>
-                  <div className="w-0 h-0 border-l-4 border-r-4 border-b-8 border-transparent border-b-white"></div>
-                </div>
-              );
-              break;
-            case 'tunnel':
-              className += "bg-gray-700 rounded-t-lg";
-              break;
-            case 'hill':
-              className += "bg-green-700 rounded-t-full";
-              if (obstacle.hasGap) {
-                innerContent = (
-                  <div 
-                    className="absolute bg-black rounded-t-lg"
-                    style={{
-                      bottom: 0,
-                      left: '20px',
-                      width: `calc(100% - 40px)`,
-                      height: '25px'
-                    }}
-                  ></div>
-                );
-              }
-              break;
-            default:
-              className += "bg-transparent";
-          }
-          
-          return (
-            <div
-              key={`obstacle-${index}`}
-              className={className}
-              style={{
-                left: obstacle.x,
-                top: obstacle.y,
-                width: obstacle.width,
-                height: obstacle.height,
-                zIndex: 3
-              }}
-            >
-              {innerContent}
-            </div>
-          );
-        })}
-        
-        {/* Player */}
-        <div
-          className="absolute bg-red-500 rounded-md"
-          style={{
-            left: 50,
-            top: playerY,
-            width: playerWidth,
-            height: playerHeight,
-            transition: 'height 0.1s',
-            zIndex: 10
-          }}
-        >
-          {/* Player cap */}
-          <div className="absolute w-full h-1/4 bg-red-600 rounded-t-md top-0"></div>
-          
-          {/* Player overalls */}
-          <div className="absolute w-full h-1/2 bg-blue-600 bottom-0 rounded-b-md">
-            <div className="absolute w-1/3 h-1/2 bg-blue-700 bottom-0 left-1/3"></div>
+        {birds.map((bird, index) => (
+          <div key={`bird-${index}`} style={birdStyle(bird)}>
+            <div style={birdBodyStyle}></div>
+            <div style={birdHeadStyle}></div>
+            <div style={birdBeakStyle}></div>
+            <div style={birdEyeStyle}></div>
+            {bird.wingUp ? (
+              <div style={birdWingUpStyle}></div>
+            ) : (
+              <div style={birdWingDownStyle}></div>
+            )}
+            {showDebug && (
+              <div style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                width: '100%',
+                height: '100%',
+                border: '1px solid red',
+                background: 'rgba(255, 0, 0, 0.2)',
+              }}></div>
+            )}
           </div>
+        ))}
+        
+        <div style={playerStyle}>
+          <div style={playerHeadStyle}></div>
+          <div style={playerEyeStyle}></div>
+          <div style={playerPupilStyle}></div>
+          {showDebug && (
+            <div style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              width: '100%',
+              height: '100%',
+              border: '1px solid blue',
+              background: 'rgba(0, 0, 255, 0.2)',
+            }}></div>
+          )}
         </div>
         
-        {/* Game overlay */}
-        {!gameStarted && !gameOver && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center bg-black bg-opacity-50 text-white">
-            <h2 className="text-4xl font-bold mb-4">Infinite Runner</h2>
-            <p className="text-xl mb-8">Press any key to start</p>
-            <div className="bg-white text-black p-4 rounded-lg">
-              <p className="font-bold mb-2">Controls:</p>
-              <p>Jump: ↑ or Space or W</p>
-              <p>Dive/Crouch: ↓ or S</p>
-              <div className="mt-4 text-sm">
-                <p className="font-bold">Challenge Tips:</p>
-                <ul className="list-disc pl-5">
-                  <li>Jump over blocks and pipes</li>
-                  <li>Crouch to go through tunnels</li>
-                  <li>Hills may have secret passages - try crouching!</li>
-                  <li>Avoid spiky blocks completely</li>
-                  <li>The game gets faster as your score increases</li>
-                </ul>
-              </div>
-            </div>
-          </div>
-        )}
+        <div style={groundStyle}></div>
+        <div style={grassStyle}></div>
+        <div style={textureStyle}></div>
+        
+        <div style={scoreStyle}>Score: {score}</div>
         
         {gameOver && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center bg-black bg-opacity-50 text-white">
-            <h2 className="text-4xl font-bold mb-4">Game Over</h2>
-            <p className="text-2xl mb-6">Score: {Math.floor(score)}</p>
-            <button
-              className="px-6 py-3 bg-blue-600 rounded-lg text-white font-bold hover:bg-blue-700"
-              onClick={resetGame}
-            >
+          <div style={gameOverStyle}>
+            <h2 style={{fontSize: '28px', margin: '0 0 10px'}}>Game Over!</h2>
+            <p>Score: {score}</p>
+            <p>High Score: {highScore}</p>
+            <button style={buttonStyle} onClick={startGame}>
               Play Again
             </button>
           </div>
         )}
         
-        {/* Score display */}
-        {gameStarted && !gameOver && (
-          <div className="absolute top-4 right-4 px-4 py-2 bg-white rounded-lg font-bold">
-            Score: {Math.floor(score)}
+        {!isPlaying && !gameOver && (
+          <div style={startScreenStyle}>
+            <h2 style={{fontSize: '28px', margin: '0 0 10px'}}>Runner Game</h2>
+            <p>Press Space or Arrow Up to jump</p>
+            <p>Press Arrow Down to duck under birds</p>
+            <p>Avoid obstacles to score points</p>
+            <button style={buttonStyle} onClick={startGame}>
+              Start Game
+            </button>
           </div>
         )}
-        
-        {/* Controls reminder */}
-        {gameStarted && !gameOver && (
-          <div className="absolute bottom-4 left-4 px-3 py-1 bg-white bg-opacity-70 rounded text-sm">
-            ↑: Jump | ↓: Dive
-          </div>
-        )}
+      </div>
+      <div className="mt-4 text-center text-gray-700">
+        <p>Press Space or Arrow Up to jump. Press Arrow Down to duck under birds. Press Ctrl+D to toggle debug mode.</p>
       </div>
     </div>
   );
 };
 
-export default InfiniteRunner;
+export default RunnerGame;
