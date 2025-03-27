@@ -1,0 +1,13 @@
+{
+    "name": "saratoga-rampage",
+    "version": "1.0.0",
+    "description": "A platformer game about a man on a rampage",
+    "main": "index.html",
+    "scripts": {
+        "start": "http-server -p 8080"
+    },
+    "dependencies": {},
+    "devDependencies": {
+        "http-server": "^14.1.1"
+    }
+}

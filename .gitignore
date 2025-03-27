@@ -1,0 +1,36 @@
+# Node.js dependencies
+node_modules/
+package-lock.json
+
+# Build output (e.g., from Vite)
+dist/
+
+# Environment files (sensitive data)
+.env
+.env.local
+.env.development
+.env.production
+
+# Temporary files
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Editor/IDE files
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# OS-specific files
+.DS_Store
+Thumbs.db
+
+# Vite cache
+.vite/
+
+# Miscellaneous
+*.bak
+*.swp
+*.tmp
