@@ -9,9 +9,9 @@ console.log('Imported config:', config);
 // Set the scenes in the config
 config.scene = [MainMenu, GameScene, GameOver];
 
-// Start the game with GameScene
+// Start the game with MainMenu
 const game = new Phaser.Game(config);
 
 // Debug: Log when the game starts
-console.log('Phaser game initialized, starting GameScene...');
-game.scene.start('GameScene');
+console.log('Phaser game initialized, starting MainMenu...');
+game.scene.start('MainMenu');

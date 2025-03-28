@@ -4,97 +4,70 @@ class GameScene extends Phaser.Scene {
     }
 
     preload() {
-        // Load the sprite sheet
-        this.load.spritesheet('player', '../../assets/sprites/Tiny16-ExpandedMaleSprites.png', {
-            frameWidth: 16,  // Each sprite is 16 pixels wide
-            frameHeight: 16  // Each sprite is 16 pixels tall
+        // Load the tile sheet
+        this.load.image('basictiles', '../../assets/maps/tiles/basictiles.png');
+
+        // Load the tilemap
+        this.load.tilemapTiledJSON('map', '../../assets/maps/map.json');
+
+        // Debug: Log when assets load
+        this.load.on('filecomplete', (key) => {
+            console.log(`Loaded ${key}`);
         });
 
-        // Debug: Log when the sprite sheet starts loading
-        this.load.on('filecomplete-spritesheet-player', () => {
-            console.log('Player sprite sheet loaded successfully!');
-        });
-
-        // Debug: Log if the sprite sheet fails to load
+        // Debug: Log if assets fail to load
         this.load.on('loaderror', (file) => {
             console.error('Failed to load file:', file.key);
         });
     }
 
     create() {
-        // Add a colored background to confirm the scene is rendering
-        this.cameras.main.setBackgroundColor('#0000ff'); // Bright blue background
+        // Load the tilemap
+        const map = this.make.tilemap({ key: 'map' });
 
-        // Add the player to the scene at position (400, 300) - center of the screen
-        this.player = this.physics.add.sprite(400, 300, 'player');
-        this.player.setCollideWorldBounds(true); // Prevent player from moving out of the game bounds
+        // Add the tileset to the map
+        const tileset = map.addTilesetImage('Basic Tiles', 'basictiles', 16, 16);
 
-        // Scale the player sprite to make it more visible (3x larger)
-        this.player.setScale(3);
+        // Create the layers
+        const backgroundLayer = map.createLayer('Background', tileset, 0, 0);
+        const groundLayer = map.createLayer('Ground', tileset, 0, 0);
+        const decorationsLayer = map.createLayer('Decorations', tileset, 0, 0);
+        const platformsLayer = map.createLayer('Platforms', tileset, 0, 0);
 
-        // Debug: Log when the player is created
-        console.log('Player created at position:', this.player.x, this.player.y);
+        // Enable camera scrolling to view the entire map
+        this.cameras.main.setBounds(0, 0, map.widthInPixels, map.heightInPixels);
+        this.cameras.main.startFollow({ x: map.widthInPixels / 2, y: map.heightInPixels / 2 }, false);
 
-        // Create animations for each direction (6 frames per direction)
-        this.anims.create({
-            key: 'down',
-            frames: this.anims.generateFrameNumbers('player', { start: 0, end: 5 }), // Row 1: frames 0-5
-            frameRate: 10,
-            repeat: -1 // Loop indefinitely
-        });
-
-        this.anims.create({
-            key: 'left',
-            frames: this.anims.generateFrameNumbers('player', { start: 6, end: 11 }), // Row 2: frames 6-11
-            frameRate: 10,
-            repeat: -1
-        });
-
-        this.anims.create({
-            key: 'right',
-            frames: this.anims.generateFrameNumbers('player', { start: 12, end: 17 }), // Row 3: frames 12-17
-            frameRate: 10,
-            repeat: -1
-        });
-
-        this.anims.create({
-            key: 'up',
-            frames: this.anims.generateFrameNumbers('player', { start: 18, end: 23 }), // Row 4: frames 18-23
-            frameRate: 10,
-            repeat: -1
-        });
-
-        // Set up keyboard input
+        // Add camera controls for manual scrolling
         this.cursors = this.input.keyboard.createCursorKeys();
     }
 
     update() {
-        // Player movement
-        const speed = 160; // Player movement speed
-
-        // Reset velocity
-        this.player.setVelocity(0);
-
-        // Handle movement and animations
+        // Camera scrolling with arrow keys
+        const cameraSpeed = 200;
         if (this.cursors.left.isDown) {
-            this.player.setVelocityX(-speed);
-            this.player.anims.play('left', true);
+            this.cameras.main.scrollX -= cameraSpeed * (this.game.loop.delta / 1000);
         }
-        else if (this.cursors.right.isDown) {
-            this.player.setVelocityX(speed);
-            this.player.anims.play('right', true);
+        if (this.cameras.main.scrollX < 0) {
+            this.cameras.main.scrollX = 0;
         }
-        else if (this.cursors.up.isDown) {
-            this.player.setVelocityY(-speed);
-            this.player.anims.play('up', true);
+        if (this.cursors.right.isDown) {
+            this.cameras.main.scrollX += cameraSpeed * (this.game.loop.delta / 1000);
         }
-        else if (this.cursors.down.isDown) {
-            this.player.setVelocityY(speed);
-            this.player.anims.play('down', true);
+        if (this.cameras.main.scrollX > this.cameras.main.worldView.width - this.cameras.main.width) {
+            this.cameras.main.scrollX = this.cameras.main.worldView.width - this.cameras.main.width;
         }
-        else {
-            // Stop animation when no keys are pressed
-            this.player.anims.stop();
+        if (this.cursors.up.isDown) {
+            this.cameras.main.scrollY -= cameraSpeed * (this.game.loop.delta / 1000);
+        }
+        if (this.cameras.main.scrollY < 0) {
+            this.cameras.main.scrollY = 0;
+        }
+        if (this.cameras.main.scrollY > this.cameras.main.worldView.height - this.cameras.main.height) {
+            this.cameras.main.scrollY = this.cameras.main.worldView.height - this.cameras.main.height;
+        }
+        if (this.cursors.down.isDown) {
+            this.cameras.main.scrollY += cameraSpeed * (this.game.loop.delta / 1000);
         }
     }
 }
