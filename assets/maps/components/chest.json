@@ -1,0 +1,14 @@
+{
+  "width": 3,
+  "height": 2,
+  "tileSize": 16,
+  "layers": [
+    {
+      "name": "chest",
+      "data": [
+        0, 0, 0,
+        0, 36, 0
+      ]
+    }
+  ]
+}

@@ -5,7 +5,7 @@ class MainMenu extends Phaser.Scene {
 
     preload() {
         // Load the sprite sheet
-        this.load.spritesheet('characters', '../../assets/sprites/characters.png', {
+        this.load.spritesheet('characters', 'assets/sprites/characters.png', {
             frameWidth: 16,
             frameHeight: 16
         });
@@ -32,8 +32,8 @@ class MainMenu extends Phaser.Scene {
             color: '#ffffff'
         }).setOrigin(0.5);
 
-        // Character 1 (Row 1, Col 2, frame 1)
-        const char1Sprite = this.add.sprite(centerX - 200, centerY, 'characters', 1);
+        // Character 1 (first character frame)
+        const char1Sprite = this.add.sprite(centerX - 200, centerY, 'characters', 0);
         char1Sprite.setScale(3);
         char1Sprite.setInteractive();
         char1Sprite.on('pointerdown', () => this.selectCharacter(0));
@@ -42,8 +42,8 @@ class MainMenu extends Phaser.Scene {
             color: '#ffffff'
         }).setOrigin(0.5);
 
-        // Character 2 (Row 1, Col 5, frame 4)
-        const char2Sprite = this.add.sprite(centerX, centerY, 'characters', 4);
+        // Character 2 (second character frame)
+        const char2Sprite = this.add.sprite(centerX, centerY, 'characters', 12);
         char2Sprite.setScale(3);
         char2Sprite.setInteractive();
         char2Sprite.on('pointerdown', () => this.selectCharacter(1));
@@ -52,8 +52,8 @@ class MainMenu extends Phaser.Scene {
             color: '#ffffff'
         }).setOrigin(0.5);
 
-        // Character 3 (Row 1, Col 8, frame 7)
-        const char3Sprite = this.add.sprite(centerX + 200, centerY, 'characters', 7);
+        // Character 3 (third character frame)
+        const char3Sprite = this.add.sprite(centerX + 200, centerY, 'characters', 24);
         char3Sprite.setScale(3);
         char3Sprite.setInteractive();
         char3Sprite.on('pointerdown', () => this.selectCharacter(2));

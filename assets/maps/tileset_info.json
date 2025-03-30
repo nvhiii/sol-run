@@ -1,0 +1,25 @@
+{
+  "tileSize": 16,
+  "tileTypes": {
+    "terrain": {
+      "1-4": "stone variants",
+      "5-8": "brick variants",
+      "9-12": "terrain variants",
+      "25-27": "top edge of island",
+      "33-35": "middle edge of island",
+      "41-43": "bottom edge of island"
+    },
+    "decorations": {
+      "36-37": "treasure chests",
+      "38-39": "plants",
+      "45-46": "buildings",
+      "47-48": "trees",
+      "49-50": "structures",
+      "53-57": "doors and entrances",
+      "74-75": "signs",
+      "81-82": "torches",
+      "83-84": "paths",
+      "103-104": "special items"
+    }
+  }
+}

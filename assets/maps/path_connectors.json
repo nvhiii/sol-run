@@ -1,0 +1,30 @@
+{
+  "vertical_path": {
+    "width": 3,
+    "height": 4,
+    "data": [
+      0, 83, 0,
+      0, 83, 0,
+      0, 83, 0,
+      0, 83, 0
+    ]
+  },
+  "horizontal_path": {
+    "width": 4,
+    "height": 3,
+    "data": [
+      0, 0, 0, 0,
+      82, 82, 82, 82,
+      0, 0, 0, 0
+    ]
+  },
+  "path_corner": {
+    "width": 3,
+    "height": 3,
+    "data": [
+      0, 83, 0,
+      0, 83, 0,
+      0, 82, 82
+    ]
+  }
+}
