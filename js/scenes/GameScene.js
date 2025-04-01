@@ -46,6 +46,8 @@ class GameScene extends Phaser.Scene {
         this.player.setScale(1.5);
         this.player.setBounce(0);
         this.player.setCollideWorldBounds(true);
+        // Disable gravity for the player to prevent unwanted downward movement
+        this.player.body.setAllowGravity(false);
         
         // Add collision between player and collidable layers
         this.physics.add.collider(this.player, terrainLayer);
