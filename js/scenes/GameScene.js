@@ -28,23 +28,30 @@ class GameScene extends Phaser.Scene {
         // Add the tileset to the map
         const tileset = map.addTilesetImage('Basic Tiles', 'basictiles');
 
-        // Create the layers - order matters for rendering
-        const backgroundLayer = map.createLayer('Background', tileset);
-        const groundLayer = map.createLayer('Ground', tileset);
-        const decorationsLayer = map.createLayer('Decorations', tileset);
-        
-        // Set collisions for walls and water
-        groundLayer.setCollisionByExclusion([-1, 8, 12]);
-        
+        // Create all layers - order matters for rendering
+        const backgroundLayer = map.createLayer('background', tileset);
+        const terrainLayer = map.createLayer('terrain', tileset);
+        const buildingsLayer = map.createLayer('buildings', tileset);
+        const decorationsLayer = map.createLayer('decorations', tileset);
+        const objectsLayer = map.createLayer('objects', tileset);
+        const pathsLayer = map.createLayer('paths', tileset);
+
+        // Set collisions for terrain, buildings, and objects
+        terrainLayer.setCollisionByExclusion([-1, 8, 12]); // Non-collidable: empty, grass, dirt
+        buildingsLayer.setCollisionByExclusion([-1]);       // Only empty tiles are non-collidable
+        objectsLayer.setCollisionByExclusion([-1]);         // Only empty tiles are non-collidable
+
         // Create player character - starting with frame 0 (facing down)
         this.player = this.physics.add.sprite(200, 100, 'characters', 0);
         this.player.setScale(1.5);
         this.player.setBounce(0);
         this.player.setCollideWorldBounds(true);
         
-        // Add collision between player and ground layer
-        this.physics.add.collider(this.player, groundLayer);
-        
+        // Add collision between player and collidable layers
+        this.physics.add.collider(this.player, terrainLayer);
+        this.physics.add.collider(this.player, buildingsLayer);
+        this.physics.add.collider(this.player, objectsLayer);
+
         // Create animations for the player
         this.createPlayerAnimations();
 
